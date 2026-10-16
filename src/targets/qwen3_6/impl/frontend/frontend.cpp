@@ -36,14 +36,13 @@ using Json   = nlohmann::json;
 using Clock  = std::chrono::steady_clock;
 namespace fi = frontend_internal;
 
-constexpr std::size_t kPatchFeatures        = 1536;
-constexpr std::string_view kThinkClose      = "</think>";
-constexpr std::string_view kUtf8Replacement = "\xef\xbf\xbd";
-constexpr std::string_view kThinkingControl =
-    "\n\n Considering the limited time by the user, I have to give the solution based on the "
-    "thinking directly now.\n</think>\n\n";
-static_assert(kThinkingControl.ends_with(fi::kCanonicalReasoningCloseSerialization));
-constexpr double kRescaleFactor                       = 1.0 / 255.0;
+constexpr std::size_t kPatchFeatures                 = 1536;
+constexpr std::string_view kThinkClose               = "</think>";
+constexpr std::string_view kUtf8Replacement          = "\xef\xbf\xbd";
+constexpr std::string_view kThinkingControlPrefix = "\n\n ";
+constexpr std::string_view kThinkingControlSuffix = "\n</think>\n\n";
+static_assert(kThinkingControlSuffix.ends_with(fi::kCanonicalReasoningCloseSerialization));
+constexpr double kRescaleFactor                      = 1.0 / 255.0;
 constexpr double kVideoFps                            = 2.0;
 constexpr int kVideoMinFrames                         = 4;
 constexpr int kVideoMaxFrames                         = 768;
@@ -942,24 +941,27 @@ public:
             }
             defaults.token_ids.push_back(token);
         }
-        std::vector<TokenId> encoded = tokenizer->encode(kThinkingControl);
+        const std::string thinking_control = std::string(kThinkingControlPrefix) +
+                                              options.thinking_control +
+                                              std::string(kThinkingControlSuffix);
+       std::vector<TokenId> encoded = tokenizer->encode(thinking_control);
         if (encoded.empty()) {
             throw std::invalid_argument(
-                "Qwen tokenizer cannot encode the canonical thinking control suffix");
+                "Qwen tokenizer cannot encode the thinking control suffix");
         }
         const std::string exact =
             tokenizer->decode(encoded, fi::DecodeOptions{.skip_special_tokens = false});
         const std::string presented =
             tokenizer->decode(encoded, fi::DecodeOptions{.skip_special_tokens = true});
-        if (exact != kThinkingControl || presented.find(kThinkClose) == std::string::npos) {
+        if (exact != thinking_control || presented.find(kThinkClose) == std::string::npos) {
             throw std::invalid_argument(
-                "Qwen tokenizer cannot present the canonical thinking control suffix");
+                "Qwen tokenizer cannot present the thinking control suffix");
         }
         for (const TokenId token : encoded) {
             if (std::find(defaults.token_ids.begin(), defaults.token_ids.end(), token) !=
                 defaults.token_ids.end()) {
                 throw std::invalid_argument(
-                    "canonical thinking control suffix contains a default terminal token");
+                    "thinking control suffix contains a default terminal token");
             }
         }
         thinking_control_tokens = std::make_shared<const std::vector<TokenId>>(std::move(encoded));

@@ -46,6 +46,7 @@ constexpr std::string_view kThinkingControlGuidance =
 constexpr std::string_view kThinkingControl =
     "\n\n Considering the limited time by the user, I have to give the solution based on the "
     "thinking directly now.\n</think>\n\n";
+constexpr std::string_view kCustomThinkingGuidance = "\n\n Custom guidance.\n";
 constexpr std::string_view kUtf8Replacement = "\xef\xbf\xbd";
 
 constexpr ninfer::TokenId kFixtureByteTokenBase = 1'000;
@@ -128,6 +129,7 @@ std::string read_file(const char* path) {
 
 std::string read_template_fixture(const char* path) {
     std::string source = read_file(path);
+    source.erase(std::remove(source.begin(), source.end(), '\r'), source.end());
     if (!source.empty() && source.back() == '\n') { source.pop_back(); }
     return source;
 }
@@ -311,7 +313,9 @@ ninfer::PromptInput image_input() {
     return input;
 }
 
-bool near(float actual, float expected) { return std::abs(actual - expected) < 1.0e-6F; }
+bool nearly_equal(float actual, float expected) {
+    return std::abs(actual - expected) < 1.0e-6F;
+}
 
 constexpr std::array<std::uint8_t, 32> kGradientDigest{
     0x1e, 0x8c, 0xd9, 0x22, 0x40, 0xfa, 0x10, 0x62, 0x7b, 0x60, 0x86, 0x8e, 0xe9, 0x66, 0x41, 0xa2,
@@ -2000,6 +2004,36 @@ int test_thinking_budget_control(const Frontend& frontend) {
     return failures;
 }
 
+int test_custom_thinking_control() {
+    try {
+        constexpr std::string_view custom_body = "Custom guidance.";
+        ninfer::targets::qwen3_6::FrontendOptions options;
+        options.thinking_control = std::string(custom_body);
+        const Frontend frontend = FrontendFactory::create_component(resources(), options);
+        auto prompt = thinking_prompt(frontend);
+        auto session = frontend.make_output_session(
+            prompt, {}, {}, ninfer::ThinkingControlOptions{.budget = 1});
+        const auto boundary = session.preview_model(std::array<ninfer::TokenId, 1>{0}, 100,
+                                                    ninfer::FinishReason::OutputLimit);
+        int failures = check(
+            boundary.continuation == ninfer::runtime::ContinuationAction::ApplyTargetControl,
+            "custom thinking control did not arm at the configured budget");
+        (void)session.commit_preview();
+        const std::vector<ninfer::TokenId> control(session.pending_control_tokens().begin(),
+                                                   session.pending_control_tokens().end());
+        failures += check(!control.empty(), "custom thinking control produced no tokens");
+        (void)session.preview_control(control, 100);
+        const auto output = session.commit_preview();
+        failures += check(channel_text(output, ninfer::OutputChannel::Reasoning) ==
+                              kCustomThinkingGuidance,
+                          "custom thinking control was not emitted with the fixed delimiters");
+        return failures;
+    } catch (const std::exception& error) {
+        std::cerr << "custom thinking control test threw: " << error.what() << '\n';
+        return 1;
+    }
+}
+
 int test_utf8_and_hidden_eos(const Frontend& frontend) {
     auto prompt             = frontend.prepare_tokens({0});
     auto session            = frontend.make_output_session(prompt, {});
@@ -2210,7 +2244,7 @@ int test_media_payload_outlives_frontend_cache() {
     const auto& data = FrontendFactory::inspect(survivor);
     return check(data.media_payloads.size() == 1 && data.media_payloads.front() &&
                      data.media_payloads.front()->patch_elements == 16 * 1536 &&
-                     near(bf16_value(data.media_payloads.front()->span().front()), -1.0F),
+                     nearly_equal(bf16_value(data.media_payloads.front()->span().front()), -1.0F),
                  "request-pinned media payload did not survive its Frontend cache owner");
 }
 
@@ -2390,6 +2424,7 @@ int main() {
     failures += test_structured_tool_output();
     failures += test_reasoning_split(frontend);
     failures += test_thinking_budget_control(frontend);
+    failures += test_custom_thinking_control();
     failures += test_utf8_and_hidden_eos(frontend);
     failures += test_media_cache_reuses_immutable_payload();
     failures += test_media_payload_outlives_frontend_cache();

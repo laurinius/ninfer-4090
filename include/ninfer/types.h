@@ -49,6 +49,10 @@ enum class KvCacheStorage : std::uint8_t {
     Fp8KeyNvfp4Value,
 };
 
+inline constexpr std::string_view kDefaultThinkingControl =
+    "Considering the limited time by the user, I have to give the solution based on the "
+    "thinking directly now.";
+
 enum class EnginePurpose : std::uint8_t {
     Generation,
     CausalScoring,
@@ -208,6 +212,8 @@ struct EngineOptions {
     bool enable_vision                     = false;
     std::uint32_t vision_max_tokens        = 8192;
     bool use_cuda_graph                    = true;
+    // Body of the target control inserted when a thinking budget closes an open reasoning block.
+    std::string thinking_control = std::string(kDefaultThinkingControl);
     ContextCacheOptions context_cache;
     ContextCostOptions context_cost;
     StartupObserver startup_observer;

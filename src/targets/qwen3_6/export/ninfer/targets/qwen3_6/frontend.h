@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -26,6 +27,8 @@ struct FrontendOptions {
     // registered single-item capacity; production paths normalize an unset value to 8192 in
     // startup_features.h.
     std::uint32_t vision_max_tokens = 0;
+    // Body of the early-close control. The frontend supplies the fixed Qwen delimiters.
+    std::string thinking_control = std::string(kDefaultThinkingControl);
 };
 
 struct FrontendResources;

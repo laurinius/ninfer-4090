@@ -64,6 +64,7 @@ struct ServeOptions {
     bool allow_prefix_reuse = true;
     bool enable_thinking =
         true; // default thinking mode for the generation prompt (--no-thinking opts out)
+    std::string thinking_control = std::string(ninfer::kDefaultThinkingControl);
     bool preserve_thinking = false;
     // Recover complete Qwen tool calls from output the strict parser returns as text.
     bool tolerant_tool_calls = false;
