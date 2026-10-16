@@ -89,6 +89,7 @@ std::string serve_usage_text(const char* argv0) {
            "[--prefill-activations a16|int8] "
            "[--spec mtp|dflash|dflash2 --draft-tokens N] "
            "[--default-max-tokens N] [--default-thinking-budget N] "
+           "[--thinking-control TEXT] "
            "[--vision] [--vision-max-tokens N] [--no-cuda-graph] [--no-prefix-reuse] "
            "[--lm-head-draft] [--no-thinking] [--preserve-thinking] [--tolerant-tool-calls] "
            "[--cors] "
@@ -138,6 +139,8 @@ std::string serve_usage_text(const char* argv0) {
            "--host-kv-mib uses MiB\n"
            "       --default-thinking-budget caps model-origin thinking for enabled requests; "
            "control tokens count toward the request output limit\n"
+           "       --thinking-control replaces the body of the early-close control inserted after "
+           "the thinking budget; defaults to the Qwen guidance text\n"
            "       --preserve-thinking retains closed-turn assistant reasoning in later prompts\n"
            "       --tolerant-tool-calls recovers complete Qwen tool calls that the strict parser "
            "would return\n"
@@ -336,6 +339,8 @@ ServeOptions parse_serve_options(int argc, char** argv) {
                 throw std::invalid_argument("--default-thinking-budget is out of range");
             }
             options.default_thinking_budget = static_cast<std::uint32_t>(budget);
+        } else if (arg == "--thinking-control") {
+            options.thinking_control = require_value("--thinking-control");
         } else if (arg == "--vision") {
             options.enable_vision = true;
         } else if (arg == "--vision-max-tokens" || arg == "--vision-limit") {

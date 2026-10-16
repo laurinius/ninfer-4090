@@ -310,6 +310,12 @@ prompts. It defaults to the server setting, which is off unless `--preserve-thin
 both OpenAI spellings are present they must carry the same boolean value. Unknown non-null
 `chat_template_kwargs` are rejected.
 
+When `--default-thinking-budget` closes an open reasoning block, Serve inserts the Qwen early-close
+control before continuing generation. `--thinking-control TEXT` replaces only its body; the server
+always retains the `\n\n ` prefix and `\n</think>\n\n` suffix. The default body is
+`Considering the limited time by the user, I have to give the solution based on the thinking
+directly now.`.
+
 Streaming begins with an assistant-role chunk, sends separate reasoning and content deltas, then a
 finish-reason chunk and `[DONE]`. When `stream_options.include_usage` is true, a final empty
 `choices` chunk contains completed usage. Aggregate and streamed usage include cached prompt tokens

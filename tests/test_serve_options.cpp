@@ -130,6 +130,18 @@ int main() {
                       "model id override is unexpectedly configured by default");
     failures += check(!defaults.default_thinking_budget,
                       "thinking budget is unexpectedly limited by default");
+    failures += check(defaults.thinking_control == ninfer::kDefaultThinkingControl,
+                      "thinking control default changed unexpectedly");
+    const ServeOptions custom_thinking_control =
+        parse({"ninfer-serve", "model.ninfer", "--thinking-control", "custom guidance"});
+    failures += check(custom_thinking_control.thinking_control == "custom guidance",
+                      "--thinking-control did not preserve its value");
+    bool missing_thinking_control_rejected = false;
+    try {
+        (void)parse({"ninfer-serve", "model.ninfer", "--thinking-control"});
+    } catch (const std::invalid_argument&) { missing_thinking_control_rejected = true; }
+    failures += check(missing_thinking_control_rejected,
+                      "--thinking-control accepted no value");
     failures += check(
         !defaults.sampling_overrides.temperature && !defaults.sampling_overrides.top_p &&
             !defaults.sampling_overrides.top_k && !defaults.sampling_overrides.presence_penalty &&
