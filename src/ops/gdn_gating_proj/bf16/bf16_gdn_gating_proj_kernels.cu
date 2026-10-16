@@ -348,7 +348,7 @@ bool launch_bf16_prefill_mma(Bf16GdnGatingTokenVariant variant, const Tensor& x,
         // counts, so each launch is sized by the residency of the variant it runs.
         const auto resident_tiles = [&](auto full_tokens) -> std::int64_t {
             constexpr bool FullTokens = decltype(full_tokens)::value;
-            static const int resident_per_sm = [] {
+            static const int resident_per_sm = [=] {
                 auto kernel =
                     bf16_gdn_gating_proj_gemm_mma_kernel<Geometry, SplitK, FullTokens, Warps,
                                                          NormalizeInput, NormTokenCapacity>;
