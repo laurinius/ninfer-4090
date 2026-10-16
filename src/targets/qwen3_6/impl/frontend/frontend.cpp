@@ -944,7 +944,11 @@ public:
         const std::string thinking_control = std::string(kThinkingControlPrefix) +
                                               options.thinking_control +
                                               std::string(kThinkingControlSuffix);
-       std::vector<TokenId> encoded = tokenizer->encode(thinking_control);
+        if (options.thinking_control.find(kThinkClose) != std::string::npos) {
+            throw std::invalid_argument(
+                "thinking control must not contain the reasoning close marker </think>");
+        }
+        std::vector<TokenId> encoded = tokenizer->encode(thinking_control);
         if (encoded.empty()) {
             throw std::invalid_argument(
                 "Qwen tokenizer cannot encode the thinking control suffix");

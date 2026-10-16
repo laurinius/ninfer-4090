@@ -2027,6 +2027,12 @@ int test_custom_thinking_control() {
         failures += check(channel_text(output, ninfer::OutputChannel::Reasoning) ==
                               kCustomThinkingGuidance,
                           "custom thinking control was not emitted with the fixed delimiters");
+        ninfer::targets::qwen3_6::FrontendOptions invalid_options;
+        invalid_options.thinking_control = "Stop </think> answer now.";
+        failures += check(
+            throws_invalid_argument(
+                [&] { (void)FrontendFactory::create_component(resources(), invalid_options); }),
+            "thinking control containing </think> was accepted");
         return failures;
     } catch (const std::exception& error) {
         std::cerr << "custom thinking control test threw: " << error.what() << '\n';
