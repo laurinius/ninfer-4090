@@ -251,6 +251,55 @@ tokens) returned 200 with the correct count; one 3200x3200 image (10,000 tokens)
 remaining wall is the 32768 aggregate, about 39 such screenshots or 8 images at pi's
 2000x2000 resize cap in one conversation.
 
+## Community triage 2026-10-24 (PRs #16, #17, #18)
+
+Three PRs had no answer from us: #16 since 2026-10-10, #17 and #18 since 2026-10-16. Reviews,
+gate scripts and evidence are in `ninfer-recon-notes/triage-20261024/`. A magnus GPU window ran
+on 2026-10-24 from 09:55 to 10:37 UTC in five parts. Production restarted after each part.
+
+| Item | Verdict | Notes |
+|---|---|---|
+| PR #17 MSVC lambda capture (laurinius) | MERGED (`363e3fba`, rebase) | Compile only. The capture-less lambda came in with `8adf1797` (PR #15 round 3), two days after the MSVC build (#10). No other site has the problem |
+| PR #18 `--thinking-control TEXT` (laurinius) | MERGED (`5aca05a7`..`0d9fce61`, rebase), default unchanged | The default control text is byte-identical. Real model: the custom body closes the reasoning at the budget, and a body with `</think>` fails at startup. Not deployed: without the flag, the PR changes no response |
+| PR #16 port to upstream v3 (T-Crypt, draft) | ANSWERED, not merged | The carry starts from our fork as of 2026-10-02, so the review fixes of #14 and #15 are missing. Our proposal: one v3 line on `catchup4` |
+| `ninfer-perplexity` fork KV dtypes | ADDED in `f3f4579c` | The tool did not accept `rk4v4-e8`, so production had no perplexity number. The parser hunk is from PR #16 (`72a24f46`) |
+
+- PR #16 base: upstream `d44ab584` (2026-09-29), before the context cache rewrite, plus 17
+  T-Crypt commits. Missing from the carry: the four #14 review fixes (`7d9d8b0a`, `724d0333`,
+  `6d88143b` and their tests) and every #15 review fix (`1f7ee28f`, `8adf1797`). INT8 prefill is
+  on by default there, with `NINFER_A16_PREFILL=1` as the only switch. The branch has no
+  `--prefill-activations`, no `--slot-save-path` and no `/metrics` route, and it refuses the
+  production cost preset (schema version). The effort clamp in `translate.cpp` applies to every
+  model. Correct in the branch: the Int8Group64 append keeps rotated keys, the fork storages keep
+  their own append template, and the E8 routing matches our tip.
+- PR #16 on the 4090 (our v2 file through upstream's `upgrade_ninfer_v2_to_v3.py`): healthy in 5
+  s with the production flags minus the three it does not parse. VRAM is 23,444 MiB at 262,144
+  `rk4v4-e8`, C=2, MTP 3 and vision, the same as production. The smoke requests (text, 8K prefill,
+  tool call, image, thinking) return 200.
+- Perplexity, quick corpus, `rk4v4-e8`, 261,167 tokens:
+
+  | Prefill | v2, production code | PR #16, v3 | Difference |
+  |---|---|---|---|
+  | A16 | 4.363573 | 4.362391 | -0.03% |
+  | INT8 | 4.358936 | 4.361960 | +0.07% |
+
+- Latch class at C=2 on the default catalog. Driver: `repro_pr13_cc.py --convs 4 --parallel 2
+  --turns 10`. Server: `--max-concurrency 2 --auto-long-anchors 2`, default p4 s4 catalog, the
+  10-04 "def-c2" case. After a latch, `/health` stays 503 until a restart.
+
+  | Binary | Runs | Latched | Error |
+  |---|---|---|---|
+  | PR #16 `23f7cfef` | 1 | 1 | `materialized sequence does not match its active entitlement` |
+  | PR #16 `9db47403` (before its #13 port) | 1 | 1 | the same |
+  | production `3a27f32d` | 2 | 1 | `capture transaction is not reservable` |
+  | #13 deploy `592bebe6` | 1 | 0 | |
+
+  The production result is the open finding 1 of the #13 review: transfers that another lane
+  causes are never credited. The latch is intermittent. The production geometry (p2 s1) passed
+  this driver at C=2 on 2026-10-04, and production traffic is OpenAI only, so the exposure is
+  low. The new cache in catch-up #4 replaces this code path. Until then, a `docker restart`
+  clears a latch.
+
 ## Community triage 2026-10-07, round 4 (PR #14)
 
 T-Crypt answered the round-3 P1 with `e7495e6c` on 2026-10-06. The commit implements the rule that
